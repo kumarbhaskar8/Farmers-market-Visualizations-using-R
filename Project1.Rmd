@@ -1,0 +1,188 @@
+---
+title: "Project 1"
+output: html_document
+---
+
+```{r}
+# Project 1
+# Kumar Sri Chandra Bhaskar Adabala
+# 201 Forsyth Building
+```
+
+```{r}
+#importing libraries
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(reshape2)
+library(usmap)
+library(treemap)
+library(stringr)
+
+```
+
+```{r}
+#Importing Dataset
+fmarket <- read.csv("~/Downloads/Course Materials/IE 6600 - Computational and Visualization for analytics/Assignments/Project 1/Project 1 Submission/fmarket.csv", na.strings="", stringsAsFactors=FALSE)
+
+head(fmarket)
+```
+
+```{r}
+#plotting payment methods
+cr <- fmarket %>%  select(Credit) %>% filter(Credit == "Y") %>% count()
+wiccash <- fmarket %>% select(WICcash) %>% filter(WICcash == "Y") %>% count()
+wic <- fmarket %>% select(WIC) %>% filter(WIC == "Y") %>% count()
+sfmnp <- fmarket %>% select(SFMNP) %>% filter(SFMNP == "Y") %>% count()
+snap <- fmarket %>% select(SNAP) %>% filter(SNAP == "Y") %>% count()
+payment_methods <- data.frame(Pay_method = c("Credit","WIC","WICcash","SFMNP","SNAP"), count_payment = c(cr$n,wic$n,wiccash$n,sfmnp$n,snap$n))
+
+#Bar plot for Markets using different payment methods
+ggplot(payment_methods) + geom_bar(aes(x = reorder(Pay_method,-count_payment), y = count_payment), stat="identity") + geom_text(aes( x= Pay_method, y = count_payment, label = count_payment), vjust=1.6, color="white", size=3.5) + labs(x = "Payment Methods", y = "Count Of Markets Using A Particular Method")+ ggtitle("Payment Methods VS Number of Markets Using Them")
+
+#state wise Markets using all payment methods
+states_using_all_payments <- fmarket %>% select(State, city, Credit,WIC,WICcash,SFMNP,SNAP) %>% group_by(State) %>% filter(Credit == "Y" & WIC =="Y" & WICcash == "Y" & SFMNP == "Y" & SNAP == "Y") %>% count()
+
+#plot for above data
+ggplot(states_using_all_payments)+geom_bar(aes(x = reorder(State,-n), y = n, fill = n), stat="identity") + coord_flip() + xlab("States") +  ylab("Number of States") + theme(legend.position = "none") + ggtitle("State Wise Markets Using All Payment Methods")  +theme(axis.text.x = element_text(face="bold", color="Black", size=8, angle=00),axis.text.y = element_text(face="italic", color="black", size=8, angle=0))
+
+#state wise Markets not using all payment methods
+states_using_no_payments <- fmarket %>% select(State, city, Credit,WIC,WICcash,SFMNP,SNAP) %>% group_by(State) %>% filter(Credit == "N" & WIC =="N" & WICcash == "N" & SFMNP == "N" & SNAP == "N") %>% count()
+
+#plot for above data
+ggplot(states_using_no_payments)+geom_bar(aes(x = reorder(State,-n), y = n, fill = n), stat="identity") + coord_flip() + xlab("States") +  ylab("Number of States")  + theme(legend.position = "none")  + ggtitle("State Wise Markets Not Using Any Payment Methods") + theme(axis.text.x = element_text(face="bold", color="Black", size=8, angle=00),axis.text.y = element_text(face="italic", color="black", size=6, angle=00))
+
+
+
+
+states_using_all_payments_for_map <- fmarket %>% select(State, city, Credit,WIC,WICcash,SFMNP,SNAP,x,y) %>% filter(Credit == "Y" & WIC =="Y" & WICcash == "Y" & SFMNP == "Y" & SNAP == "Y") %>% group_by(State) %>% mutate(count = n()) %>% select(longitude=x,latitude=y,count,State) %>% na.omit()
+
+#install.packages("maptools")
+states_using_all_payments_for_map <- usmap_transform(states_using_all_payments_for_map)
+
+#Plotting map
+#plot_usmap() + geom_point(data = states_using_all_payments_for_map, aes(x=longitude.1, y=latitude.1, size = count),color = "green",alpha = 0.25) + ggtitle("State Wise Markets Using All Payment Methods") + labs(size = "No. of Markets")
+
+
+states_not_using_all_payments_for_map <- fmarket %>% select(State, city, Credit,WIC,WICcash,SFMNP,SNAP,x,y) %>% filter(Credit == "N" & WIC =="N" & WICcash == "N" & SFMNP == "N" & SNAP == "N") %>% group_by(State) %>% mutate(count = n()) %>% select(longitude=x,latitude=y,count,State) %>% na.omit()
+
+states_not_using_all_payments_for_map <- usmap_transform(states_not_using_all_payments_for_map)
+
+#Plotting map
+#plot_usmap() + geom_point(data = states_not_using_all_payments_for_map, aes(x=longitude.1, y=latitude.1, size = count),color = "red",alpha = 0.25) + ggtitle("State Wise Markets Not Using All Payment Methods") + labs(size = "No. of Markets")
+
+#combined map which shows states using all payment methods vs not using all payment methods
+plot_usmap() +geom_point(data = states_not_using_all_payments_for_map, aes(x=longitude.1, y=latitude.1, size = count),color = "red",alpha = 0.1) + geom_point(data = states_using_all_payments_for_map, aes(x=longitude.1, y=latitude.1, size = count),color = "green",alpha = 0.1) + ggtitle("State Wise Markets Using All Payment Methods VS Not Using All Payment methods") +labs(subtitle = "Green: Using all Methods || Red: Not Using any Methods ") + labs(size = "No. of Markets") +theme(legend.position = "left") + scale_size_continuous(range = c(1,8))
+
+
+
+```
+
+
+```{r}
+# Tree map for payments region wise
+
+
+state_regions <- read.csv("~/Downloads/Course Materials/IE 6600 - Computational and Visualization for analytics/Assignments/Project 1/Project 1 Submission//state_regions.csv", na.strings="", stringsAsFactors=FALSE)
+
+data_tree_map_by_region <- fmarket[,c(11,24:28)]
+data_tree_map_by_region[data_tree_map_by_region=="Y"] <-1
+data_tree_map_by_region[data_tree_map_by_region=="N"] <-0
+
+data_tree_map_by_region <- gather(data_tree_map_by_region, key = "Typeofpayment", value = count, -State)
+
+data_tree_map_by_region <-full_join(data_tree_map_by_region,state_regions,by = "State")
+
+data_tree_map_by_region <- data_tree_map_by_region %>% filter(count == 1) %>%  group_by(Region,Typeofpayment) %>% drop_na() %>% summarise(Count = n())
+
+
+
+
+#Treemap by type of payment and regions
+treemap(data_tree_map_by_region,index = c("Typeofpayment","Region"),vSize = "Count", type="index" ,algorithm = "pivotSize",title = "Payment Method Usage By Region", fontcolor.labels=c("white","Black","yellow"),fontface.labels=c(4,3,3), bg.labels=c("transparent"),palette = "Set1",overlap.labels=.5) 
+
+```
+
+
+```{r}
+#Different Product markets region wise
+product_data <- fmarket[,c(11,29:50)]
+product_data[product_data=="Y"] <-1
+product_data[product_data=="N"] <-0
+#Since organic column has - values I am assigning "0" to na values also.
+product_data[product_data=="-"] <- 0
+
+product_data <- gather(product_data, key = "Typeofgoods", value = measurement, -State)
+product_data$measurement <- as.numeric(product_data$measurement)
+
+product_data <- full_join(product_data,state_regions,by = "State")
+
+product_data <- product_data %>%  filter(measurement == 1) %>% group_by(Region,Typeofgoods) %>% na.omit() %>% 
+  mutate(Count = n()) %>% drop_na()
+
+ggplot(product_data) + geom_bar(aes( x = Typeofgoods, y =Count ,fill = Region), stat = "identity") +facet_grid(.~Region) + geom_text(aes( x = Typeofgoods, y = Count , label = Count), color="black", hjust = -3.1, size=2.5)+ coord_flip() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +ggtitle("Different Kinds of Product Markets By Region") + ylab("Type Of Products")
+
+
+
+ 
+
+```
+
+```{r}
+# Social media 
+
+social_media_data <- fmarket[,c(3:7)]
+
+# Assumed that all row having some url as 1 and not having url as 0  (ignored few rows which doesn't have url set as one)
+social_media_data[!is.na(social_media_data)] <- 1
+social_media_data[is.na(social_media_data)]  <- 0
+
+social_media_data <- cbind(social_media_data,State = fmarket$State)
+
+social_media_data = gather(social_media_data, key = "Socialmedia",value = "value", -State)
+social_media_data$value <- as.numeric(social_media_data$value) 
+
+
+social_media_data <- social_media_data %>%  filter(value == 1) %>% na.omit()  %>%  group_by(State,Socialmedia) %>% summarise(Count = n()) 
+
+
+
+ggplot(social_media_data) + geom_bar(aes(x= State, y = Count, fill = Socialmedia),stat = "identity" ) + coord_flip() +theme(axis.text.x = element_text(face="bold", color="Black", size=8, angle=00),axis.text.y = element_text(face="italic", color="black", size=6, angle=0))+scale_fill_brewer(palette="Dark2")+ggtitle("Markets Social Media Presence By State")
+
+
+ggplot(social_media_data) + geom_bar(aes(x= State, y = Count, fill = Socialmedia),stat = "identity" ) + coord_flip() +theme(axis.text.x = element_text(face="bold", color="Black", size=6, angle=00),axis.text.y = element_text(face="italic", color="black", size=6, angle=0)) + facet_grid(.~Socialmedia)+scale_fill_brewer(palette="Dark2")+ggtitle("Markets Social Media Presence By State")
+
+
+```
+
+```{r}
+#Seasons
+
+season_one <- fmarket %>% select(State,Season1Date)
+season_one <- data.frame(State = season_one$State,season_1 = str_remove_all(season_one$Season1Date,"to"))
+season_one %>% na.omit()
+season_one <- season_one %>% select(State,season_1) %>% separate(season_1, c("season_from","season_to"), sep = "  ")
+test <- test %>% na.omit()
+
+season_one$season_from <- stringr::word(season_one$season_from, -1, sep="/")
+season_one$season_to <- stringr::word(season_one$season_to, -1, sep="/")
+
+
+season_one <- season_one %>% na.omit()
+
+  
+season_one$season_1 <- paste(season_one$season_from,"to",test$season_to)
+
+season_one <-season_one %>% select(State,season_1) %>% na.omit() %>% group_by(season_1) %>% mutate(Count =n())
+
+
+
+treemap(season,index = c("State"),vSize = "Count", type="index" ,algorithm = "pivotSize",title = "Number of Season-1 Markets By State", fontcolor.labels=c("black","Black"),fontface.labels=c(4), bg.labels=c("transparent"),palette = "Set2",overlap.labels=.5, fontsize.labels = 8 ) 
+
+
+
+
+```
+
+
+
